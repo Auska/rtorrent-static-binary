@@ -84,7 +84,7 @@ cmake --build build -j"$(nproc)"
 cmake --install build
 
 # Remove the system zlib .pc file so pkg-config prefers zlib-ng
-rm -f /usr/lib/pkgconfig/zlib.pc /usr/local/lib/pkgconfig/zlib.pc 2>/dev/null || true
+rm -f /usr/lib/pkgconfig/zlib.pc 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
 # 3. Build LibreSSL (replaces OpenSSL)
