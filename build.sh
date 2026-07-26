@@ -245,7 +245,28 @@ make -j"$(nproc)"
 make install
 
 # ---------------------------------------------------------------------------
-# 8. Build libtorrent (same version tag as rtorrent)
+# 8. Build rpmalloc (modern heap memory allocator)
+# ---------------------------------------------------------------------------
+RPMALLOC_VERSION=$(curl -fsS "https://api.github.com/repos/mjansson/rpmalloc/releases/latest" | jq -r '.tag_name')
+echo "Latest rpmalloc version: ${RPMALLOC_VERSION}"
+
+cd /build
+curl -fsSLO "https://github.com/mjansson/rpmalloc/archive/refs/tags/${RPMALLOC_VERSION}.tar.gz"
+tar xf "${RPMALLOC_VERSION}.tar.gz"
+cd "rpmalloc-${RPMALLOC_VERSION}"
+
+cmake -B build \
+    -DCMAKE_INSTALL_PREFIX=/usr/local \
+    -DBUILD_SHARED_LIBS=OFF \
+    -DENABLE_OVERRIDE=ON \
+    -DCMAKE_C_FLAGS="${BASE_CFLAGS}" \
+    -DCMAKE_INSTALL_LIBDIR=lib
+
+cmake --build build -j"$(nproc)"
+cmake --install build
+
+# ---------------------------------------------------------------------------
+# 9. Build libtorrent (same version tag as rtorrent)
 # ---------------------------------------------------------------------------
 cd /build
 
@@ -275,7 +296,7 @@ make -j"$(nproc)"
 make install
 
 # ---------------------------------------------------------------------------
-# 9. Build rtorrent (same version tag as libtorrent)
+# 10. Build rtorrent (same version tag as libtorrent)
 # ---------------------------------------------------------------------------
 cd /build
 
@@ -300,10 +321,10 @@ autoreconf -fi
     CFLAGS="${BASE_CFLAGS}" \
     CXXFLAGS="${BASE_CFLAGS}"
 
-make -j"$(nproc)" LDFLAGS="-all-static -Wl,--as-needed -flto"
+make -j"$(nproc)" LDFLAGS="-all-static -Wl,--as-needed -flto -Wl,--whole-archive /usr/local/lib/librpmalloc.a -Wl,--no-whole-archive"
 
 # ---------------------------------------------------------------------------
-# 10. Copy and verify the output binary
+# 11. Copy and verify the output binary
 # ---------------------------------------------------------------------------
 OUTPUT="/output/rtorrent-linux-${ARCH}${SUFFIX}"
 
