@@ -88,9 +88,9 @@ LIBRESSL_VERSION=$(curl -fsS "https://api.github.com/repos/libressl/portable/rel
 echo "Latest LibreSSL version: ${LIBRESSL_VERSION}"
 
 cd /build
-curl -fsSLO "https://github.com/libressl/portable/archive/refs/tags/v${LIBRESSL_VERSION}.tar.gz"
-tar xf "v${LIBRESSL_VERSION}.tar.gz"
-cd "portable-${LIBRESSL_VERSION}"
+curl -fsSLO "https://ftp.openbsd.org/pub/OpenBSD/LibreSSL/libressl-${LIBRESSL_VERSION}.tar.gz"
+tar xf "libressl-${LIBRESSL_VERSION}.tar.gz"
+cd "libressl-${LIBRESSL_VERSION}"
 
 cmake -B build \
     -DCMAKE_INSTALL_PREFIX=/usr/local \
