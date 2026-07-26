@@ -35,7 +35,6 @@ apk add --no-cache \
     autoconf \
     autoconf-archive \
     automake \
-    brotli-static \
     build-base \
     cmake \
     cppunit-dev \
@@ -44,13 +43,8 @@ apk add --no-cache \
     gettext-dev \
     git \
     jq \
-    libidn2-static \
-    libpsl-static \
     libtool \
-    libunistring-dev \
-    libunistring-static \
-    pkgconf \
-    zstd-static
+    pkgconf
 
 # ---------------------------------------------------------------------------
 # 2. Build zlib-ng (zlib replacement with optimizations)
