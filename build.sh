@@ -46,6 +46,9 @@ apk add --no-cache \
     libtool \
     pkgconf
 
+export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig"
+export LD_LIBRARY_PATH="/usr/local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+
 # ---------------------------------------------------------------------------
 # 2. Build zlib-ng (zlib replacement with optimizations)
 # ---------------------------------------------------------------------------
