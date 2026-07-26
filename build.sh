@@ -74,7 +74,7 @@ cd "musl-${MUSL_VERSION}"
 ./configure \
     --prefix=/usr/local \
     --disable-shared \
-    CFLAGS="${BASE_CFLAGS}"
+    CFLAGS="${ARCH_CFLAGS} -O3 -pipe"
 
 make -j"$(nproc)"
 make install
