@@ -82,10 +82,13 @@ python3 configure.py --lto -c release --toolchain gcc ${RPMALLOC_ARCH:+-a "${RPM
 
 ninja -j"$(nproc)"
 
-# Copy the static library manually (use RPMALLOC_ARCH set above)
+# Copy and augment the static library with malloc/free override
 mkdir -p /usr/local/lib
 cp -f "lib/linux/release/${RPMALLOC_ARCH}/librpmalloc.a" /usr/local/lib/
-cp -f "lib/linux/release/${RPMALLOC_ARCH}/librpmallocwrap.a" /usr/local/lib/ 2>/dev/null || true
+
+# Compile wrap.c with ENABLE_OVERRIDE to provide malloc/free/realloc/calloc symbols
+gcc -c -DENABLE_OVERRIDE=1 -I. ${BASE_CFLAGS} rpmalloc/wrap.c -o /tmp/wrap.o
+ar rcs /usr/local/lib/librpmalloc.a /tmp/wrap.o
 
 # ---------------------------------------------------------------------------
 # 3. Build zlib-ng (zlib replacement with optimizations)
@@ -330,7 +333,7 @@ autoreconf -fi
     CFLAGS="${BASE_CFLAGS}" \
     CXXFLAGS="${BASE_CFLAGS}"
 
-make -j"$(nproc)" LDFLAGS="-all-static -Wl,--as-needed -flto -Wl,--whole-archive /usr/local/lib/librpmalloc.a /usr/local/lib/librpmallocwrap.a -Wl,--no-whole-archive"
+make -j"$(nproc)" LDFLAGS="-all-static -Wl,--as-needed -flto -Wl,--undefined=malloc -Wl,--undefined=free -Wl,--undefined=calloc -Wl,--undefined=realloc"
 
 # ---------------------------------------------------------------------------
 # 11. Copy and verify the output binary
