@@ -104,7 +104,7 @@ esac
 
 python3 configure.py --lto -c release --toolchain gcc ${RPMALLOC_ARCH:+-a "${RPMALLOC_ARCH}"}
 
-ninja -j"$(nproc)"
+ninja -j"$(nproc)" "lib/linux/release/${RPMALLOC_ARCH}/librpmalloc.a"
 
 # Copy the static library (override symbols already included via rpmalloc.c #include "malloc.c")
 mkdir -p /usr/local/lib
