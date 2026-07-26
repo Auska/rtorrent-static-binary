@@ -34,7 +34,7 @@ case "${ARCH}" in
     arm64|aarch64) ARCH_CFLAGS="-march=armv8-a"    ;;
     *)             ARCH_CFLAGS=""                   ;;
 esac
-BASE_CFLAGS="${ARCH_CFLAGS} -flto -static -O3 -pipe"
+BASE_CFLAGS="${ARCH_CFLAGS} -static -O3 -pipe"
 
 # ---------------------------------------------------------------------------
 # 1. System packages
@@ -350,8 +350,8 @@ autoreconf -fi
     --disable-shared \
     --disable-debug \
     PKG_CONFIG="pkg-config --static" \
-    CFLAGS="${BASE_CFLAGS}" \
-    CXXFLAGS="${BASE_CFLAGS}"
+    CFLAGS="${BASE_CFLAGS} -flto" \
+    CXXFLAGS="${BASE_CFLAGS} -flto"
 
 make -j"$(nproc)" LDFLAGS="-all-static -Wl,--as-needed -flto -Wl,--undefined=malloc -Wl,--undefined=free -Wl,--undefined=calloc -Wl,--undefined=realloc"
 
