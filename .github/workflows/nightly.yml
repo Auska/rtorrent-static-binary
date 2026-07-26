@@ -164,19 +164,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: [amd64, arm64]
+        arch: [amd64]
     outputs:
       alpine_version: ${{ steps.alpine.outputs.version }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
-
-      - name: Set up QEMU for arm64 cross-compilation
-        if: matrix.arch == 'arm64'
-        uses: docker/setup-qemu-action@v4
-        with:
-          platforms: arm64
 
       - name: Read Alpine version number from alpine:latest
         id: alpine
