@@ -28,6 +28,14 @@ if [ -z "${VERSION_NUM}" ] && { [ -z "${RTORRENT_SHA}" ] || [ -z "${LIBTORRENT_S
     exit 1
 fi
 
+# Set architecture-specific compiler flags
+case "${ARCH}" in
+    amd64|x86_64)  ARCH_CFLAGS="-march=x86-64-v2"  ;;
+    arm64|aarch64) ARCH_CFLAGS="-march=armv8-a"    ;;
+    *)             ARCH_CFLAGS=""                   ;;
+esac
+BASE_CFLAGS="${ARCH_CFLAGS} -flto -static -O3 -pipe"
+
 # ---------------------------------------------------------------------------
 # 1. System packages
 # ---------------------------------------------------------------------------
@@ -68,7 +76,7 @@ cmake -B build \
     -DZLIB_COMPAT=ON \
     -DWITH_AVX512=OFF \
     -DWITH_AVX2=OFF \
-    -DCMAKE_C_FLAGS="-march=x86-64-v2 -flto -static -O3 -pipe" \
+    -DCMAKE_C_FLAGS="${BASE_CFLAGS}" \
     -DCMAKE_EXE_LINKER_FLAGS="-static" \
     -DCMAKE_INSTALL_LIBDIR=lib
 
@@ -94,7 +102,7 @@ cmake -B build \
     -DBUILD_SHARED_LIBS=OFF \
     -DLIBRESSL_APPS=OFF \
     -DLIBRESSL_TESTS=OFF \
-    -DCMAKE_C_FLAGS="-march=x86-64-v2 -flto -static -O3 -pipe" \
+    -DCMAKE_C_FLAGS="${BASE_CFLAGS}" \
     -DCMAKE_EXE_LINKER_FLAGS="-static" \
     -DCMAKE_INSTALL_LIBDIR=lib
 
@@ -119,8 +127,8 @@ autoreconf -fi
     --disable-debug \
     --enable-lib-only \
     PKG_CONFIG="pkg-config --static" \
-    CFLAGS="-march=x86-64-v2 -flto -static -O3 -pipe" \
-    CXXFLAGS="-march=x86-64-v2 -flto -static -O3 -pipe"
+    CFLAGS="${BASE_CFLAGS}" \
+    CXXFLAGS="${BASE_CFLAGS}"
 
 make -j"$(nproc)"
 make install
@@ -156,8 +164,8 @@ mkdir -p build && cd build
     --without-progs \
     --with-fallback="linux" \
     --disable-full-macros \
-    CFLAGS="-march=x86-64-v2 -flto -static -O3 -pipe" \
-    CXXFLAGS="-march=x86-64-v2 -flto -static -O3 -pipe"
+    CFLAGS="${BASE_CFLAGS}" \
+    CXXFLAGS="${BASE_CFLAGS}"
 
 make -j"$(nproc)"
 make install.libs install.includes
@@ -208,8 +216,8 @@ autoreconf -fi
     --disable-telnet \
     --disable-tftp \
     PKG_CONFIG="pkg-config --static" \
-    CFLAGS="-march=x86-64-v2 -flto -static -O3 -pipe" \
-    CXXFLAGS="-march=x86-64-v2 -flto -static -O3 -pipe"
+    CFLAGS="${BASE_CFLAGS}" \
+    CXXFLAGS="${BASE_CFLAGS}"
 
 make -j"$(nproc)"
 make install
@@ -238,8 +246,8 @@ autoreconf -fi
     --disable-shared \
     --disable-debug \
     PKG_CONFIG="pkg-config --static" \
-    CFLAGS="-march=x86-64-v2 -flto -static -O3 -pipe" \
-    CXXFLAGS="-march=x86-64-v2 -flto -static -O3 -pipe"
+    CFLAGS="${BASE_CFLAGS}" \
+    CXXFLAGS="${BASE_CFLAGS}"
 
 make -j"$(nproc)"
 make install
@@ -267,8 +275,8 @@ autoreconf -fi
     --disable-shared \
     --disable-debug \
     PKG_CONFIG="pkg-config --static" \
-    CFLAGS="-march=x86-64-v2 -flto -static -O3 -pipe" \
-    CXXFLAGS="-march=x86-64-v2 -flto -static -O3 -pipe"
+    CFLAGS="${BASE_CFLAGS}" \
+    CXXFLAGS="${BASE_CFLAGS}"
 
 make -j"$(nproc)" LDFLAGS="-all-static -Wl,--as-needed -flto"
 
