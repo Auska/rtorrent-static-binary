@@ -60,7 +60,35 @@ export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig"
 export LD_LIBRARY_PATH="/usr/local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
 # ---------------------------------------------------------------------------
-# 2. Build zlib-ng (zlib replacement with optimizations)
+# 2. Build rpmalloc (modern heap memory allocator)
+# ---------------------------------------------------------------------------
+RPMALLOC_VERSION=$(curl -fsS "https://api.github.com/repos/mjansson/rpmalloc/releases/latest" | jq -r '.tag_name')
+echo "Latest rpmalloc version: ${RPMALLOC_VERSION}"
+
+mkdir -p /build
+cd /build
+curl -fsSLO "https://github.com/mjansson/rpmalloc/archive/refs/tags/${RPMALLOC_VERSION}.tar.gz"
+tar xf "${RPMALLOC_VERSION}.tar.gz"
+cd "rpmalloc-${RPMALLOC_VERSION}"
+
+# Map ARCH to rpmalloc architecture name
+case "${ARCH}" in
+    amd64|x86_64)  RPMALLOC_ARCH="x86-64"  ;;
+    arm64|aarch64) RPMALLOC_ARCH="arm64"    ;;
+    *)             RPMALLOC_ARCH=""         ;;
+esac
+
+python3 configure.py --lto -c release --toolchain gcc ${RPMALLOC_ARCH:+-a "${RPMALLOC_ARCH}"}
+
+ninja -j"$(nproc)"
+
+# Copy the static library manually (use RPMALLOC_ARCH set above)
+mkdir -p /usr/local/lib
+cp -f "lib/linux/release/${RPMALLOC_ARCH}/librpmalloc.a" /usr/local/lib/
+cp -f "lib/linux/release/${RPMALLOC_ARCH}/librpmallocwrap.a" /usr/local/lib/ 2>/dev/null || true
+
+# ---------------------------------------------------------------------------
+# 3. Build zlib-ng (zlib replacement with optimizations)
 # ---------------------------------------------------------------------------
 ZLIB_NG_VERSION=$(curl -fsS "https://api.github.com/repos/zlib-ng/zlib-ng/releases/latest" | jq -r '.tag_name')
 echo "Latest zlib-ng version: ${ZLIB_NG_VERSION}"
@@ -89,7 +117,7 @@ cmake --install build
 rm -f /usr/lib/pkgconfig/zlib.pc 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
-# 3. Build LibreSSL (replaces OpenSSL)
+# 4. Build LibreSSL (replaces OpenSSL)
 # ---------------------------------------------------------------------------
 LIBRESSL_VERSION=$(curl -fsS "https://api.github.com/repos/libressl/portable/releases/latest" | jq -r '.tag_name' | sed 's/^v//')
 echo "Latest LibreSSL version: ${LIBRESSL_VERSION}"
@@ -112,7 +140,7 @@ cmake --build build -j"$(nproc)"
 cmake --install build
 
 # ---------------------------------------------------------------------------
-# 4. Build nghttp2 (HTTP/2 library)
+# 5. Build nghttp2 (HTTP/2 library)
 # ---------------------------------------------------------------------------
 NGHTTP2_VERSION=$(curl -fsS "https://api.github.com/repos/nghttp2/nghttp2/releases/latest" | jq -r '.tag_name' | sed 's/^v//')
 echo "Latest nghttp2 version: ${NGHTTP2_VERSION}"
@@ -136,7 +164,7 @@ make -j"$(nproc)"
 make install
 
 # ---------------------------------------------------------------------------
-# 5. Build ncurses (terminal handling library)
+# 6. Build ncurses (terminal handling library)
 # ---------------------------------------------------------------------------
 
 cd /build
@@ -173,7 +201,7 @@ make -j"$(nproc)"
 make install.libs install.includes
 
 # ---------------------------------------------------------------------------
-# 6. Build libpsl (Public Suffix List library)
+# 7. Build libpsl (Public Suffix List library)
 # ---------------------------------------------------------------------------
 LIBPSL_VERSION=$(curl -fsS "https://api.github.com/repos/rockdaboot/libpsl/releases/latest" | jq -r '.tag_name')
 echo "Latest libpsl version: ${LIBPSL_VERSION}"
@@ -196,7 +224,7 @@ make -j"$(nproc)"
 make install
 
 # ---------------------------------------------------------------------------
-# 7. Build curl (HTTP/HTTPS tool and library)
+# 8. Build curl (HTTP/HTTPS tool and library)
 # ---------------------------------------------------------------------------
 CURL_TAG=$(curl -fsS "https://api.github.com/repos/curl/curl/releases/latest" | jq -r '.tag_name')
 CURL_VERSION=$(echo "$CURL_TAG" | sed 's/curl-//' | tr '_' '.')
@@ -245,33 +273,6 @@ autoreconf -fi
 
 make -j"$(nproc)"
 make install
-
-# ---------------------------------------------------------------------------
-# 8. Build rpmalloc (modern heap memory allocator)
-# ---------------------------------------------------------------------------
-RPMALLOC_VERSION=$(curl -fsS "https://api.github.com/repos/mjansson/rpmalloc/releases/latest" | jq -r '.tag_name')
-echo "Latest rpmalloc version: ${RPMALLOC_VERSION}"
-
-cd /build
-curl -fsSLO "https://github.com/mjansson/rpmalloc/archive/refs/tags/${RPMALLOC_VERSION}.tar.gz"
-tar xf "${RPMALLOC_VERSION}.tar.gz"
-cd "rpmalloc-${RPMALLOC_VERSION}"
-
-# Map ARCH to rpmalloc architecture name
-case "${ARCH}" in
-    amd64|x86_64)  RPMALLOC_ARCH="x86-64"  ;;
-    arm64|aarch64) RPMALLOC_ARCH="arm64"    ;;
-    *)             RPMALLOC_ARCH=""         ;;
-esac
-
-python3 configure.py --lto -c release --toolchain gcc ${RPMALLOC_ARCH:+-a "${RPMALLOC_ARCH}"}
-
-ninja -j"$(nproc)"
-
-# Copy the static library manually (use RPMALLOC_ARCH set above)
-mkdir -p /usr/local/lib
-cp -f "lib/linux/release/${RPMALLOC_ARCH}/librpmalloc.a" /usr/local/lib/
-cp -f "lib/linux/release/${RPMALLOC_ARCH}/librpmallocwrap.a" /usr/local/lib/ 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
 # 9. Build libtorrent (same version tag as rtorrent)
