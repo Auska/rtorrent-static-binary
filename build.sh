@@ -163,7 +163,7 @@ mkdir -p build && cd build
     CXXFLAGS="-march=x86-64-v2 -flto -static -O3 -pipe"
 
 make -j"$(nproc)"
-make install
+make install.libs install.includes
 
 # ---------------------------------------------------------------------------
 # 6. Build curl (HTTP/HTTPS tool and library)
