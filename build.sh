@@ -60,7 +60,31 @@ export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig"
 export LD_LIBRARY_PATH="/usr/local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
 # ---------------------------------------------------------------------------
-# 2. Build rpmalloc (modern heap memory allocator)
+# 2. Build musl libc (C standard library)
+# ---------------------------------------------------------------------------
+MUSL_VERSION="1.2.6"
+echo "Building musl libc ${MUSL_VERSION}"
+
+mkdir -p /build
+cd /build
+curl -fsSLO "https://git.musl-libc.org/cgit/musl/snapshot/musl-${MUSL_VERSION}.tar.gz"
+tar xf "musl-${MUSL_VERSION}.tar.gz"
+cd "musl-${MUSL_VERSION}"
+
+./configure \
+    --prefix=/usr/local \
+    --disable-shared \
+    CFLAGS="${BASE_CFLAGS}"
+
+make -j"$(nproc)"
+make install
+
+# Ensure subsequent builds find our musl libc first
+export LIBRARY_PATH="/usr/local/lib${LIBRARY_PATH:+:$LIBRARY_PATH}"
+export CPATH="/usr/local/include${CPATH:+:$CPATH}"
+
+# ---------------------------------------------------------------------------
+# 3. Build rpmalloc (modern heap memory allocator)
 # ---------------------------------------------------------------------------
 RPMALLOC_VERSION=$(curl -fsS "https://api.github.com/repos/mjansson/rpmalloc/releases/latest" | jq -r '.tag_name')
 echo "Latest rpmalloc version: ${RPMALLOC_VERSION}"
@@ -87,7 +111,7 @@ mkdir -p /usr/local/lib
 cp -f "lib/linux/release/${RPMALLOC_ARCH}/librpmalloc.a" /usr/local/lib/
 
 # ---------------------------------------------------------------------------
-# 3. Build zlib-ng (zlib replacement with optimizations)
+# 4. Build zlib-ng (zlib replacement with optimizations)
 # ---------------------------------------------------------------------------
 ZLIB_NG_VERSION=$(curl -fsS "https://api.github.com/repos/zlib-ng/zlib-ng/releases/latest" | jq -r '.tag_name')
 echo "Latest zlib-ng version: ${ZLIB_NG_VERSION}"
@@ -116,7 +140,7 @@ cmake --install build
 rm -f /usr/lib/pkgconfig/zlib.pc 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
-# 4. Build LibreSSL (replaces OpenSSL)
+# 5. Build LibreSSL (replaces OpenSSL)
 # ---------------------------------------------------------------------------
 LIBRESSL_VERSION=$(curl -fsS "https://api.github.com/repos/libressl/portable/releases/latest" | jq -r '.tag_name' | sed 's/^v//')
 echo "Latest LibreSSL version: ${LIBRESSL_VERSION}"
@@ -139,7 +163,7 @@ cmake --build build -j"$(nproc)"
 cmake --install build
 
 # ---------------------------------------------------------------------------
-# 5. Build nghttp2 (HTTP/2 library)
+# 6. Build nghttp2 (HTTP/2 library)
 # ---------------------------------------------------------------------------
 NGHTTP2_VERSION=$(curl -fsS "https://api.github.com/repos/nghttp2/nghttp2/releases/latest" | jq -r '.tag_name' | sed 's/^v//')
 echo "Latest nghttp2 version: ${NGHTTP2_VERSION}"
@@ -163,7 +187,7 @@ make -j"$(nproc)"
 make install
 
 # ---------------------------------------------------------------------------
-# 6. Build ncurses (terminal handling library)
+# 7. Build ncurses (terminal handling library)
 # ---------------------------------------------------------------------------
 
 cd /build
@@ -200,7 +224,7 @@ make -j"$(nproc)"
 make install.libs install.includes
 
 # ---------------------------------------------------------------------------
-# 7. Build libpsl (Public Suffix List library)
+# 8. Build libpsl (Public Suffix List library)
 # ---------------------------------------------------------------------------
 LIBPSL_VERSION=$(curl -fsS "https://api.github.com/repos/rockdaboot/libpsl/releases/latest" | jq -r '.tag_name')
 echo "Latest libpsl version: ${LIBPSL_VERSION}"
@@ -223,7 +247,7 @@ make -j"$(nproc)"
 make install
 
 # ---------------------------------------------------------------------------
-# 8. Build curl (HTTP/HTTPS tool and library)
+# 9. Build curl (HTTP/HTTPS tool and library)
 # ---------------------------------------------------------------------------
 CURL_TAG=$(curl -fsS "https://api.github.com/repos/curl/curl/releases/latest" | jq -r '.tag_name')
 CURL_VERSION=$(echo "$CURL_TAG" | sed 's/curl-//' | tr '_' '.')
@@ -274,7 +298,7 @@ make -j"$(nproc)"
 make install
 
 # ---------------------------------------------------------------------------
-# 9. Build libtorrent (same version tag as rtorrent)
+# 10. Build libtorrent (same version tag as rtorrent)
 # ---------------------------------------------------------------------------
 cd /build
 
@@ -304,7 +328,7 @@ make -j"$(nproc)"
 make install
 
 # ---------------------------------------------------------------------------
-# 10. Build rtorrent (same version tag as libtorrent)
+# 11. Build rtorrent (same version tag as libtorrent)
 # ---------------------------------------------------------------------------
 cd /build
 
@@ -332,7 +356,7 @@ autoreconf -fi
 make -j"$(nproc)" LDFLAGS="-all-static -Wl,--as-needed -flto -Wl,--undefined=malloc -Wl,--undefined=free -Wl,--undefined=calloc -Wl,--undefined=realloc"
 
 # ---------------------------------------------------------------------------
-# 11. Copy and verify the output binary
+# 12. Copy and verify the output binary
 # ---------------------------------------------------------------------------
 OUTPUT="/output/rtorrent-linux-${ARCH}${SUFFIX}"
 
