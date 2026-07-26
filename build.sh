@@ -171,7 +171,30 @@ make -j"$(nproc)"
 make install.libs install.includes
 
 # ---------------------------------------------------------------------------
-# 6. Build curl (HTTP/HTTPS tool and library)
+# 6. Build libpsl (Public Suffix List library)
+# ---------------------------------------------------------------------------
+LIBPSL_VERSION=$(curl -fsS "https://api.github.com/repos/rockdaboot/libpsl/releases/latest" | jq -r '.tag_name')
+echo "Latest libpsl version: ${LIBPSL_VERSION}"
+
+cd /build
+curl -fsSLO "https://github.com/rockdaboot/libpsl/releases/download/${LIBPSL_VERSION}/libpsl-${LIBPSL_VERSION}.tar.gz"
+tar xf "libpsl-${LIBPSL_VERSION}.tar.gz"
+cd "libpsl-${LIBPSL_VERSION}"
+
+./configure \
+    --prefix=/usr/local \
+    --enable-static \
+    --disable-shared \
+    --disable-gtk-doc \
+    --disable-runtime \
+    PKG_CONFIG="pkg-config --static" \
+    CFLAGS="${BASE_CFLAGS}"
+
+make -j"$(nproc)"
+make install
+
+# ---------------------------------------------------------------------------
+# 7. Build curl (HTTP/HTTPS tool and library)
 # ---------------------------------------------------------------------------
 CURL_TAG=$(curl -fsS "https://api.github.com/repos/curl/curl/releases/latest" | jq -r '.tag_name')
 CURL_VERSION=$(echo "$CURL_TAG" | sed 's/curl-//' | tr '_' '.')
@@ -193,7 +216,6 @@ autoreconf -fi
     --disable-alt-svc \
     --disable-hsts \
     --disable-ares \
-    --without-libpsl \
     --without-brotli \
     --with-openssl \
     --with-nghttp2 \
@@ -223,7 +245,7 @@ make -j"$(nproc)"
 make install
 
 # ---------------------------------------------------------------------------
-# 7. Build libtorrent (same version tag as rtorrent)
+# 8. Build libtorrent (same version tag as rtorrent)
 # ---------------------------------------------------------------------------
 cd /build
 
@@ -253,7 +275,7 @@ make -j"$(nproc)"
 make install
 
 # ---------------------------------------------------------------------------
-# 8. Build rtorrent (same version tag as libtorrent)
+# 9. Build rtorrent (same version tag as libtorrent)
 # ---------------------------------------------------------------------------
 cd /build
 
@@ -281,7 +303,7 @@ autoreconf -fi
 make -j"$(nproc)" LDFLAGS="-all-static -Wl,--as-needed -flto"
 
 # ---------------------------------------------------------------------------
-# 9. Copy and verify the output binary
+# 10. Copy and verify the output binary
 # ---------------------------------------------------------------------------
 OUTPUT="/output/rtorrent-linux-${ARCH}${SUFFIX}"
 
