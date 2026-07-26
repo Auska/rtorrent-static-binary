@@ -30,9 +30,30 @@ fi
 
 # Set architecture-specific compiler flags
 case "${ARCH}" in
-    amd64|x86_64)  ARCH_CFLAGS="-march=x86-64-v2"  ;;
-    arm64|aarch64) ARCH_CFLAGS="-march=armv8-a"    ;;
-    *)             ARCH_CFLAGS=""                   ;;
+    amd64|x86_64)
+        ARCH_CFLAGS="-march=x86-64-v2"
+        ZLIB_AVX2="OFF"
+        ;;
+    amd64-gracemont|x86_64-gracemont)
+        ARCH_CFLAGS="-march=gracemont -mtune=gracemont"
+        ZLIB_AVX2="ON"
+        ;;
+    amd64-tremont|x86_64-tremont)
+        ARCH_CFLAGS="-march=tremont -mtune=tremont"
+        ZLIB_AVX2="OFF"
+        ;;
+    amd64-v3|x86_64-v3)
+        ARCH_CFLAGS="-march=x86-64-v3"
+        ZLIB_AVX2="ON"
+        ;;
+    arm64|aarch64)
+        ARCH_CFLAGS="-march=armv8-a"
+        ZLIB_AVX2="OFF"
+        ;;
+    *)
+        ARCH_CFLAGS=""
+        ZLIB_AVX2="OFF"
+        ;;
 esac
 BASE_CFLAGS="${ARCH_CFLAGS} -static -O3 -pipe"
 
@@ -128,7 +149,7 @@ cmake -B build \
     -DBUILD_TESTING=OFF \
     -DZLIB_COMPAT=ON \
     -DWITH_AVX512=OFF \
-    -DWITH_AVX2=OFF \
+    -DWITH_AVX2=${ZLIB_AVX2} \
     -DCMAKE_C_FLAGS="${BASE_CFLAGS}" \
     -DCMAKE_EXE_LINKER_FLAGS="-static" \
     -DCMAKE_INSTALL_LIBDIR=lib
