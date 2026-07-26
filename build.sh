@@ -268,11 +268,10 @@ python3 configure.py --lto -c release --toolchain gcc ${RPMALLOC_ARCH:+-a "${RPM
 
 ninja -j"$(nproc)"
 
-# Copy the static library manually
-ARCH_DIR=$(uname -m)
+# Copy the static library manually (use RPMALLOC_ARCH set above)
 mkdir -p /usr/local/lib
-cp -f "lib/linux/release/${ARCH_DIR}/librpmalloc.a" /usr/local/lib/
-cp -f "lib/linux/release/${ARCH_DIR}/librpmallocwrap.a" /usr/local/lib/ 2>/dev/null || true
+cp -f "lib/linux/release/${RPMALLOC_ARCH}/librpmalloc.a" /usr/local/lib/
+cp -f "lib/linux/release/${RPMALLOC_ARCH}/librpmallocwrap.a" /usr/local/lib/ 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
 # 9. Build libtorrent (same version tag as rtorrent)
