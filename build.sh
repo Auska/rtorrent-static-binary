@@ -52,7 +52,9 @@ apk add --no-cache \
     git \
     jq \
     libtool \
-    pkgconf
+    ninja \
+    pkgconf \
+    python3
 
 export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig"
 export LD_LIBRARY_PATH="/usr/local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
@@ -255,15 +257,14 @@ curl -fsSLO "https://github.com/mjansson/rpmalloc/archive/refs/tags/${RPMALLOC_V
 tar xf "${RPMALLOC_VERSION}.tar.gz"
 cd "rpmalloc-${RPMALLOC_VERSION}"
 
-cmake -B build \
-    -DCMAKE_INSTALL_PREFIX=/usr/local \
-    -DBUILD_SHARED_LIBS=OFF \
-    -DENABLE_OVERRIDE=ON \
-    -DCMAKE_C_FLAGS="${BASE_CFLAGS}" \
-    -DCMAKE_INSTALL_LIBDIR=lib
+CFLAGS="${BASE_CFLAGS}" python3 configure.py --override
 
-cmake --build build -j"$(nproc)"
-cmake --install build
+ninja -j"$(nproc)"
+
+# Copy the static library manually (install target may not exist)
+mkdir -p /usr/local/lib
+cp -f "bin/$(uname -m)-linux/release/librpmalloc.a" /usr/local/lib/
+cp -f "bin/$(uname -m)-linux/release/librpmallocwrap.a" /usr/local/lib/ 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
 # 9. Build libtorrent (same version tag as rtorrent)
