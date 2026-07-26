@@ -257,7 +257,14 @@ curl -fsSLO "https://github.com/mjansson/rpmalloc/archive/refs/tags/${RPMALLOC_V
 tar xf "${RPMALLOC_VERSION}.tar.gz"
 cd "rpmalloc-${RPMALLOC_VERSION}"
 
-CFLAGS="${BASE_CFLAGS}" python3 configure.py --override
+# Map ARCH to rpmalloc architecture name
+case "${ARCH}" in
+    amd64|x86_64)  RPMALLOC_ARCH="x86-64"  ;;
+    arm64|aarch64) RPMALLOC_ARCH="arm64"    ;;
+    *)             RPMALLOC_ARCH=""         ;;
+esac
+
+python3 configure.py --lto -c release --toolchain gcc ${RPMALLOC_ARCH:+-a "${RPMALLOC_ARCH}"}
 
 ninja -j"$(nproc)"
 
@@ -322,7 +329,7 @@ autoreconf -fi
     CFLAGS="${BASE_CFLAGS}" \
     CXXFLAGS="${BASE_CFLAGS}"
 
-make -j"$(nproc)" LDFLAGS="-all-static -Wl,--as-needed -flto -Wl,--whole-archive /usr/local/lib/librpmalloc.a -Wl,--no-whole-archive"
+make -j"$(nproc)" LDFLAGS="-all-static -Wl,--as-needed -flto -Wl,--whole-archive /usr/local/lib/librpmalloc.a /usr/local/lib/librpmallocwrap.a -Wl,--no-whole-archive"
 
 # ---------------------------------------------------------------------------
 # 11. Copy and verify the output binary
