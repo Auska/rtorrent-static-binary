@@ -87,8 +87,14 @@ mkdir -p /usr/local/lib
 cp -f "lib/linux/release/${RPMALLOC_ARCH}/librpmalloc.a" /usr/local/lib/
 
 # Compile wrap.c with ENABLE_OVERRIDE to provide malloc/free/realloc/calloc symbols
-gcc -c -DENABLE_OVERRIDE=1 -I. ${BASE_CFLAGS} rpmalloc/wrap.c -o /tmp/wrap.o
-ar rcs /usr/local/lib/librpmalloc.a /tmp/wrap.o
+WRAP_SRC=$(find . -name wrap.c -type f 2>/dev/null | head -1)
+if [ -n "${WRAP_SRC}" ]; then
+    gcc -c -DENABLE_OVERRIDE=1 -I. ${BASE_CFLAGS} "${WRAP_SRC}" -o /tmp/wrap.o
+    ar rcs /usr/local/lib/librpmalloc.a /tmp/wrap.o
+    echo "rpmalloc: injected malloc/free override from ${WRAP_SRC}"
+else
+    echo "WARNING: rpmalloc wrap.c not found, override symbols may be missing"
+fi
 
 # ---------------------------------------------------------------------------
 # 3. Build zlib-ng (zlib replacement with optimizations)
