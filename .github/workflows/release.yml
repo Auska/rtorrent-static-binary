@@ -84,7 +84,7 @@ jobs:
   # Both amd64 and arm64 jobs run in parallel; arm64 uses QEMU emulation.
   # --------------------------------------------------------------------------
   build:
-    name: Build (${{ matrix.arch }}${{ matrix.variant.suffix }})
+    name: Build (${{ matrix.arch }})
     needs: check-version
     if: needs.check-version.outputs.should_build == 'true'
     runs-on: ubuntu-latest
@@ -94,13 +94,6 @@ jobs:
       fail-fast: false
       matrix:
         arch: [amd64, arm64]
-        variant:
-          - option: ""
-            suffix: ""
-          - option: "--with-xmlrpc-c"
-            suffix: "-xmlrpc-c"
-          - option: "--with-xmlrpc-tinyxml2"
-            suffix: "-xmlrpc-tinyxml2"
     outputs:
       alpine_version: ${{ steps.alpine.outputs.version }}
 
@@ -125,8 +118,8 @@ jobs:
         env:
           VERSION_NUM: ${{ needs.check-version.outputs.version_num }}
           ARCH: ${{ matrix.arch }}
-          WITH_OPTION: ${{ matrix.variant.option }}
-          SUFFIX: ${{ matrix.variant.suffix }}
+          WITH_OPTION: "--with-xmlrpc-tinyxml2"
+          SUFFIX: ""
         run: |
           mkdir -p "${{ github.workspace }}/output"
           docker run --rm \
@@ -141,7 +134,7 @@ jobs:
 
       - name: Verify binary is statically linked
         run: |
-          FILE="output/rtorrent-linux-${{ matrix.arch }}${{ matrix.variant.suffix }}"
+          FILE="output/rtorrent-linux-${{ matrix.arch }}"
           file "$FILE"
           if readelf -l "$FILE" | grep -q 'INTERP'; then
             echo "ERROR: Binary is NOT statically linked!"

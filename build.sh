@@ -11,8 +11,7 @@
 #   ARCH          Output filename suffix that identifies the target CPU
 #                 (e.g.  amd64  or  arm64)
 # Optional environment variables:
-#   WITH_OPTION   extra build parameter for rtorrent
-#                 (e.g. --with-xmlrpc-c or --with-xmlrpc-tinyxml2)
+#   WITH_OPTION   extra build parameter for rtorrent (default: --with-xmlrpc-tinyxml2)
 #   SUFFIX        Extra suffix for the output file
 
 set -eux
@@ -21,7 +20,7 @@ set -eux
 : "${RTORRENT_SHA:=}"
 : "${LIBTORRENT_SHA:=}"
 : "${ARCH:?ARCH must be set (e.g. amd64 or arm64)}"
-: "${WITH_OPTION:=}"
+: "${WITH_OPTION:=--with-xmlrpc-tinyxml2}"
 : "${SUFFIX:=}"
 
 if [ -z "${VERSION_NUM}" ] && { [ -z "${RTORRENT_SHA}" ] || [ -z "${LIBTORRENT_SHA}" ]; }; then
@@ -38,34 +37,188 @@ apk add --no-cache \
     automake \
     brotli-static \
     build-base \
+    cmake \
     cppunit-dev \
     curl \
-    curl-dev \
-    curl-static \
     gawk \
     gettext-dev \
     git \
+    jq \
     libidn2-static \
     libpsl-static \
     libtool \
     libunistring-dev \
     libunistring-static \
-    ncurses-dev \
-    ncurses-static \
-    nghttp2-static \
-    openssl-dev \
-    openssl-libs-static \
     pkgconf \
-    xmlrpc-c-dev \
-    xmlrpc-c-static \
-    zlib-dev \
-    zlib-static \
     zstd-static
 
 # ---------------------------------------------------------------------------
-# 2. Build libtorrent (same version tag as rtorrent)
+# 2. Build zlib-ng (zlib replacement with optimizations)
 # ---------------------------------------------------------------------------
+ZLIB_NG_VERSION=$(curl -fsS "https://api.github.com/repos/zlib-ng/zlib-ng/releases/latest" | jq -r '.tag_name')
+echo "Latest zlib-ng version: ${ZLIB_NG_VERSION}"
+
 mkdir -p /build
+cd /build
+curl -fsSLO "https://github.com/zlib-ng/zlib-ng/archive/refs/tags/${ZLIB_NG_VERSION}.tar.gz"
+tar xf "${ZLIB_NG_VERSION}.tar.gz"
+cd "zlib-ng-${ZLIB_NG_VERSION}"
+
+cmake -B build \
+    -DCMAKE_INSTALL_PREFIX=/usr/local \
+    -DBUILD_SHARED_LIBS=OFF \
+    -DBUILD_TESTING=OFF \
+    -DZLIB_COMPAT=ON \
+    -DWITH_AVX512=OFF \
+    -DWITH_AVX2=OFF \
+    -DCMAKE_C_FLAGS="-march=x86-64-v2 -flto -static -O3 -pipe" \
+    -DCMAKE_EXE_LINKER_FLAGS="-static" \
+    -DCMAKE_INSTALL_LIBDIR=lib
+
+cmake --build build -j"$(nproc)"
+cmake --install build
+
+# Remove the system zlib .pc file so pkg-config prefers zlib-ng
+rm -f /usr/lib/pkgconfig/zlib.pc /usr/local/lib/pkgconfig/zlib.pc 2>/dev/null || true
+
+# ---------------------------------------------------------------------------
+# 3. Build LibreSSL (replaces OpenSSL)
+# ---------------------------------------------------------------------------
+LIBRESSL_VERSION=$(curl -fsS "https://api.github.com/repos/libressl/portable/releases/latest" | jq -r '.tag_name' | sed 's/^v//')
+echo "Latest LibreSSL version: ${LIBRESSL_VERSION}"
+
+cd /build
+curl -fsSLO "https://github.com/libressl/portable/archive/refs/tags/v${LIBRESSL_VERSION}.tar.gz"
+tar xf "v${LIBRESSL_VERSION}.tar.gz"
+cd "portable-${LIBRESSL_VERSION}"
+
+cmake -B build \
+    -DCMAKE_INSTALL_PREFIX=/usr/local \
+    -DBUILD_SHARED_LIBS=OFF \
+    -DLIBRESSL_APPS=OFF \
+    -DLIBRESSL_TESTS=OFF \
+    -DCMAKE_C_FLAGS="-march=x86-64-v2 -flto -static -O3 -pipe" \
+    -DCMAKE_EXE_LINKER_FLAGS="-static" \
+    -DCMAKE_INSTALL_LIBDIR=lib
+
+cmake --build build -j"$(nproc)"
+cmake --install build
+
+# ---------------------------------------------------------------------------
+# 4. Build nghttp2 (HTTP/2 library)
+# ---------------------------------------------------------------------------
+NGHTTP2_VERSION=$(curl -fsS "https://api.github.com/repos/nghttp2/nghttp2/releases/latest" | jq -r '.tag_name' | sed 's/^v//')
+echo "Latest nghttp2 version: ${NGHTTP2_VERSION}"
+
+cd /build
+curl -fsSLO "https://github.com/nghttp2/nghttp2/archive/refs/tags/v${NGHTTP2_VERSION}.tar.gz"
+tar xf "v${NGHTTP2_VERSION}.tar.gz"
+cd "nghttp2-${NGHTTP2_VERSION}"
+
+autoreconf -fi
+./configure \
+    --enable-static \
+    --disable-shared \
+    --disable-debug \
+    --enable-lib-only \
+    PKG_CONFIG="pkg-config --static" \
+    CFLAGS="-march=x86-64-v2 -flto -static -O3 -pipe" \
+    CXXFLAGS="-march=x86-64-v2 -flto -static -O3 -pipe"
+
+make -j"$(nproc)"
+make install
+
+# ---------------------------------------------------------------------------
+# 5. Build ncurses (terminal handling library)
+# ---------------------------------------------------------------------------
+
+cd /build
+curl -fsSLO "https://invisible-island.net/archives/ncurses/ncurses.tar.gz"
+tar xf ncurses.tar.gz
+NCURSES_DIR=$(tar tzf ncurses.tar.gz | head -1 | cut -d/ -f1)
+cd "$NCURSES_DIR"
+
+# Need to run the configure script from a separate build directory
+mkdir -p build && cd build
+
+../configure \
+    --prefix=/usr/local \
+    --enable-static \
+    --disable-shared \
+    --enable-pc-files \
+    --with-pkg-config-libdir=/usr/local/lib/pkgconfig \
+    --without-debug \
+    --without-manpages \
+    --with-termlib \
+    --disable-big-core \
+    --disable-big-strings \
+    --disable-relink \
+    --disable-rpath \
+    --without-ada \
+    --without-tests \
+    --without-progs \
+    --with-fallback="linux" \
+    --disable-full-macros \
+    CFLAGS="-march=x86-64-v2 -flto -static -O3 -pipe" \
+    CXXFLAGS="-march=x86-64-v2 -flto -static -O3 -pipe"
+
+make -j"$(nproc)"
+make install
+
+# ---------------------------------------------------------------------------
+# 6. Build curl (HTTP/HTTPS tool and library)
+# ---------------------------------------------------------------------------
+CURL_TAG=$(curl -fsS "https://api.github.com/repos/curl/curl/releases/latest" | jq -r '.tag_name')
+CURL_VERSION=$(echo "$CURL_TAG" | sed 's/curl-//' | tr '_' '.')
+echo "Latest curl version: ${CURL_VERSION}"
+
+cd /build
+curl -fsSLO "https://github.com/curl/curl/archive/refs/tags/curl-${CURL_VERSION//./_}.tar.gz"
+tar xf "curl-${CURL_VERSION//./_}.tar.gz"
+cd "curl-curl-${CURL_VERSION//./_}"
+
+autoreconf -fi
+./configure \
+    --prefix=/usr/local \
+    --enable-static \
+    --disable-shared \
+    --disable-debug \
+    --disable-unix-sockets \
+    --disable-headers-api \
+    --disable-alt-svc \
+    --disable-hsts \
+    --disable-ares \
+    --without-libpsl \
+    --with-openssl \
+    --with-nghttp2 \
+    --without-nghttp3 \
+    --without-ngtcp2 \
+    --without-openssl-quic \
+    --with-zlib \
+    --enable-ipv6 \
+    --disable-ldap \
+    --disable-ldaps \
+    --disable-manual \
+    --disable-dict \
+    --disable-gopher \
+    --disable-imap \
+    --disable-mqtt \
+    --disable-pop3 \
+    --disable-rtsp \
+    --disable-smb \
+    --disable-smtp \
+    --disable-telnet \
+    --disable-tftp \
+    PKG_CONFIG="pkg-config --static" \
+    CFLAGS="-march=x86-64-v2 -flto -static -O3 -pipe" \
+    CXXFLAGS="-march=x86-64-v2 -flto -static -O3 -pipe"
+
+make -j"$(nproc)"
+make install
+
+# ---------------------------------------------------------------------------
+# 7. Build libtorrent (same version tag as rtorrent)
+# ---------------------------------------------------------------------------
 cd /build
 
 # If VERSION_NUM is set, we download the source tarball for that version. This is the default behavior for release builds.
@@ -87,14 +240,14 @@ autoreconf -fi
     --disable-shared \
     --disable-debug \
     PKG_CONFIG="pkg-config --static" \
-    CFLAGS="-Os" \
-    CXXFLAGS="-Os"
+    CFLAGS="-march=x86-64-v2 -flto -static -O3 -pipe" \
+    CXXFLAGS="-march=x86-64-v2 -flto -static -O3 -pipe"
 
 make -j"$(nproc)"
 make install
 
 # ---------------------------------------------------------------------------
-# 3. Build rtorrent (same version tag as libtorrent)
+# 8. Build rtorrent (same version tag as libtorrent)
 # ---------------------------------------------------------------------------
 cd /build
 
@@ -116,13 +269,13 @@ autoreconf -fi
     --disable-shared \
     --disable-debug \
     PKG_CONFIG="pkg-config --static" \
-    CFLAGS="-Os" \
-    CXXFLAGS="-Os"
+    CFLAGS="-march=x86-64-v2 -flto -static -O3 -pipe" \
+    CXXFLAGS="-march=x86-64-v2 -flto -static -O3 -pipe"
 
-make -j"$(nproc)" LDFLAGS="-all-static -Wl,--as-needed"
+make -j"$(nproc)" LDFLAGS="-all-static -Wl,--as-needed -flto"
 
 # ---------------------------------------------------------------------------
-# 4. Copy and verify the output binary
+# 9. Copy and verify the output binary
 # ---------------------------------------------------------------------------
 OUTPUT="/output/rtorrent-linux-${ARCH}${SUFFIX}"
 

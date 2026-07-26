@@ -31,9 +31,7 @@ Each release may include multiple rTorrent variants.
 
 | Variant | Description |
 |---|---|
-| <code>rtorrent&#8209;linux&#8209;amd64</code> <br> <code>rtorrent&#8209;linux&#8209;arm64</code> | Default modern rTorrent build with JSON-RPC support |
-| `*-xmlrpc-c` | Built with `xmlrpc-c` for compatibility with older XML-RPC based setups |
-| `*-xmlrpc-tinyxml2` | Built with rTorrent's `tinyxml2` XML-RPC support, providing a smaller XML implementation |
+| <code>rtorrent&#8209;linux&#8209;amd64</code> <br> <code>rtorrent&#8209;linux&#8209;arm64</code> | Modern rTorrent build with built-in `tinyxml2` XML-RPC support |
 
 Use the default binary unless you specifically need XML-RPC compatibility.
 
