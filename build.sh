@@ -320,6 +320,7 @@ autoreconf -fi
     --enable-static \
     --disable-shared \
     --disable-debug \
+    --enable-pthread-setstacksize \
     PKG_CONFIG="pkg-config --static" \
     CFLAGS="${BASE_CFLAGS}" \
     CXXFLAGS="${BASE_CFLAGS}"
