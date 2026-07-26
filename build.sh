@@ -189,6 +189,7 @@ autoreconf -fi
     --disable-hsts \
     --disable-ares \
     --without-libpsl \
+    --without-brotli \
     --with-openssl \
     --with-nghttp2 \
     --without-nghttp3 \
