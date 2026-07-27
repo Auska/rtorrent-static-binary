@@ -118,9 +118,9 @@ cd "rpmalloc-${RPMALLOC_VERSION}"
 
 # Map ARCH to rpmalloc architecture name
 case "${ARCH}" in
-    amd64|x86_64)  RPMALLOC_ARCH="x86-64"  ;;
-    arm64|aarch64) RPMALLOC_ARCH="arm64"    ;;
-    *)             RPMALLOC_ARCH=""         ;;
+    amd64*|x86_64*)  RPMALLOC_ARCH="x86-64"  ;;
+    arm64|aarch64)   RPMALLOC_ARCH="arm64"    ;;
+    *)               RPMALLOC_ARCH=""         ;;
 esac
 
 python3 configure.py --lto -c release --toolchain gcc ${RPMALLOC_ARCH:+-a "${RPMALLOC_ARCH}"}
