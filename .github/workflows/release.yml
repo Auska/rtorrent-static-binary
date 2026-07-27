@@ -94,6 +94,17 @@ jobs:
       fail-fast: false
       matrix:
         arch: [amd64, amd64-gracemont, amd64-tremont, amd64-v3, arm64]
+        include:
+          - arch: amd64
+            platform: amd64
+          - arch: amd64-gracemont
+            platform: amd64
+          - arch: amd64-tremont
+            platform: amd64
+          - arch: amd64-v3
+            platform: amd64
+          - arch: arm64
+            platform: arm64
     outputs:
       alpine_version: ${{ steps.alpine.outputs.version }}
 
@@ -123,7 +134,7 @@ jobs:
         run: |
           mkdir -p "${{ github.workspace }}/output"
           docker run --rm \
-            --platform "linux/${{ matrix.arch }}" \
+            --platform "linux/${{ matrix.platform }}" \
             -e "VERSION_NUM=${VERSION_NUM}" \
             -e "ARCH=${ARCH}" \
             -e "WITH_OPTION=${WITH_OPTION}" \
@@ -144,8 +155,8 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
-          name: rtorrent-linux-${{ matrix.arch }}${{ matrix.variant.suffix }}
-          path: output/rtorrent-linux-${{ matrix.arch }}${{ matrix.variant.suffix }}
+          name: rtorrent-linux-${{ matrix.arch }}
+          path: output/rtorrent-linux-${{ matrix.arch }}
           if-no-files-found: error
 
   # --------------------------------------------------------------------------
