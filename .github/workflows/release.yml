@@ -103,8 +103,8 @@ jobs:
             platform: amd64
           - arch: amd64-v3
             platform: amd64
-          - arch: arm64
-            platform: arm64
+          #- arch: arm64
+          #  platform: arm64
     # QEMU setup for arm64 (disabled temporarily)
     outputs:
       alpine_version: ${{ steps.alpine.outputs.version }}
