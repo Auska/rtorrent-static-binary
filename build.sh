@@ -322,6 +322,8 @@ autoreconf -fi
     --disable-ldap \
     --disable-ldaps \
     --disable-manual \
+    --disable-docs \
+    --disable-ipfs \
     --disable-dict \
     --disable-gopher \
     --disable-imap \
