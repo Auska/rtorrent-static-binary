@@ -92,7 +92,7 @@ export LD_LIBRARY_PATH="/usr/local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
 echo "=== Fetching dependency version information ==="
 
-MUSL_VERSION=$(${CURL} "https://api.github.com/repos/ifduyue/musl/releases/latest" | jq -r '.tag_name')
+MUSL_VERSION=$(${CURL} "https://api.github.com/repos/ifduyue/musl/tags" | jq -r '.[0].name')
 echo "musl version: ${MUSL_VERSION}"
 
 RPMALLOC_VERSION=$(${CURL} "https://api.github.com/repos/mjansson/rpmalloc/releases/latest" | jq -r '.tag_name')
