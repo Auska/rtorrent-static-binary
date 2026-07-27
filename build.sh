@@ -268,7 +268,29 @@ make -j"$(nproc)"
 make install
 
 # ---------------------------------------------------------------------------
-# 9. Build curl (HTTP/HTTPS tool and library)
+# 9. Build c-ares (asynchronous DNS resolver)
+# ---------------------------------------------------------------------------
+CARES_VERSION=$(curl -fsS "https://api.github.com/repos/c-ares/c-ares/releases/latest" | jq -r '.tag_name' | sed 's/^v//')
+echo "Latest c-ares version: ${CARES_VERSION}"
+
+cd /build
+curl -fsSLO "https://github.com/c-ares/c-ares/releases/download/v${CARES_VERSION}/c-ares-${CARES_VERSION}.tar.gz"
+tar xf "c-ares-${CARES_VERSION}.tar.gz"
+cd "c-ares-${CARES_VERSION}"
+
+cmake -B build \
+    -DCMAKE_INSTALL_PREFIX=/usr/local \
+    -DBUILD_SHARED_LIBS=OFF \
+    -DCARES_STATIC=ON \
+    -DCARES_SHARED=OFF \
+    -DCMAKE_C_FLAGS="${BASE_CFLAGS}" \
+    -DCMAKE_INSTALL_LIBDIR=lib
+
+cmake --build build -j"$(nproc)"
+cmake --install build
+
+# ---------------------------------------------------------------------------
+# 10. Build curl (HTTP/HTTPS tool and library)
 # ---------------------------------------------------------------------------
 CURL_TAG=$(curl -fsS "https://api.github.com/repos/curl/curl/releases/latest" | jq -r '.tag_name')
 CURL_VERSION=$(echo "$CURL_TAG" | sed 's/curl-//' | tr '_' '.')
@@ -289,7 +311,6 @@ autoreconf -fi
     --disable-headers-api \
     --disable-alt-svc \
     --disable-hsts \
-    --disable-ares \
     --without-brotli \
     --with-openssl \
     --with-nghttp2 \
@@ -319,7 +340,7 @@ make -j"$(nproc)"
 make install
 
 # ---------------------------------------------------------------------------
-# 10. Build libtorrent (same version tag as rtorrent)
+# 11. Build libtorrent (same version tag as rtorrent)
 # ---------------------------------------------------------------------------
 cd /build
 
@@ -350,7 +371,7 @@ make -j"$(nproc)"
 make install
 
 # ---------------------------------------------------------------------------
-# 11. Build rtorrent (same version tag as libtorrent)
+# 12. Build rtorrent (same version tag as libtorrent)
 # ---------------------------------------------------------------------------
 cd /build
 
@@ -378,7 +399,7 @@ autoreconf -fi
 make -j"$(nproc)" LDFLAGS="-all-static -Wl,--as-needed -flto -Wl,--undefined=malloc -Wl,--undefined=free -Wl,--undefined=calloc -Wl,--undefined=realloc"
 
 # ---------------------------------------------------------------------------
-# 12. Copy and verify the output binary
+# 13. Copy and verify the output binary
 # ---------------------------------------------------------------------------
 OUTPUT="/output/rtorrent-linux-${ARCH}${SUFFIX}"
 
