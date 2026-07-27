@@ -92,7 +92,7 @@ export LD_LIBRARY_PATH="/usr/local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
 echo "=== Fetching dependency version information ==="
 
-MUSL_VERSION="1.2.6"
+MUSL_VERSION=$(${CURL} "https://api.github.com/repos/ifduyue/musl/releases/latest" | jq -r '.tag_name')
 echo "musl version: ${MUSL_VERSION}"
 
 RPMALLOC_VERSION=$(${CURL} "https://api.github.com/repos/mjansson/rpmalloc/releases/latest" | jq -r '.tag_name')
@@ -127,8 +127,8 @@ mkdir -p /build
 cd /build
 
 # musl
-${CURL_DL} "https://git.musl-libc.org/cgit/musl/snapshot/musl-${MUSL_VERSION}.tar.gz"
-tar xf "musl-${MUSL_VERSION}.tar.gz"
+${CURL_DL} "https://github.com/ifduyue/musl/archive/refs/tags/${MUSL_VERSION}.tar.gz"
+tar xf "${MUSL_VERSION}.tar.gz"
 
 # rpmalloc
 ${CURL_DL} "https://github.com/mjansson/rpmalloc/archive/refs/tags/${RPMALLOC_VERSION}.tar.gz"
