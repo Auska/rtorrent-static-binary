@@ -129,6 +129,7 @@ cd /build
 # musl
 ${CURL_DL} "https://github.com/ifduyue/musl/archive/refs/tags/${MUSL_VERSION}.tar.gz"
 tar xf "${MUSL_VERSION}.tar.gz"
+MUSL_DIR=$(tar tzf "${MUSL_VERSION}.tar.gz" | head -1 | cut -d/ -f1)
 
 # rpmalloc
 ${CURL_DL} "https://github.com/mjansson/rpmalloc/archive/refs/tags/${RPMALLOC_VERSION}.tar.gz"
@@ -196,7 +197,7 @@ echo "=== Compiling all components ==="
 # ---------------------------------------------------------------------------
 echo "Building musl libc ${MUSL_VERSION}"
 
-cd /build/musl-${MUSL_VERSION}
+cd /build/${MUSL_DIR}
 
 ./configure \
     --prefix=/usr/local \
