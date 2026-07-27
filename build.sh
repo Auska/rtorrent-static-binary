@@ -58,6 +58,12 @@ esac
 BASE_CFLAGS="${ARCH_CFLAGS} -static -O3 -pipe"
 
 # ---------------------------------------------------------------------------
+# 0. Common curl options
+# ---------------------------------------------------------------------------
+CURL="curl -fsS --retry 10 --retry-delay 5 --connect-timeout 10"
+CURL_DL="curl -fsSLO --retry 10 --retry-delay 5 --connect-timeout 10"
+
+# ---------------------------------------------------------------------------
 # 1. System packages
 # ---------------------------------------------------------------------------
 apk add --no-cache \
@@ -80,17 +86,117 @@ apk add --no-cache \
 export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig"
 export LD_LIBRARY_PATH="/usr/local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
-# ---------------------------------------------------------------------------
-# 2. Build musl libc (C standard library)
-# ---------------------------------------------------------------------------
+# ===========================================================================
+# Part 1: Get dependency version information
+# ===========================================================================
+
+echo "=== Fetching dependency version information ==="
+
 MUSL_VERSION="1.2.6"
-echo "Building musl libc ${MUSL_VERSION}"
+echo "musl version: ${MUSL_VERSION}"
+
+RPMALLOC_VERSION=$(${CURL} "https://api.github.com/repos/mjansson/rpmalloc/releases/latest" | jq -r '.tag_name')
+echo "rpmalloc version: ${RPMALLOC_VERSION}"
+
+ZLIB_NG_VERSION=$(${CURL} "https://api.github.com/repos/zlib-ng/zlib-ng/releases/latest" | jq -r '.tag_name')
+echo "zlib-ng version: ${ZLIB_NG_VERSION}"
+
+LIBRESSL_VERSION=$(${CURL} "https://api.github.com/repos/libressl/portable/releases/latest" | jq -r '.tag_name' | sed 's/^v//')
+echo "libressl version: ${LIBRESSL_VERSION}"
+
+NGHTTP2_VERSION=$(${CURL} "https://api.github.com/repos/nghttp2/nghttp2/releases/latest" | jq -r '.tag_name' | sed 's/^v//')
+echo "nghttp2 version: ${NGHTTP2_VERSION}"
+
+LIBPSL_VERSION=$(${CURL} "https://api.github.com/repos/rockdaboot/libpsl/releases/latest" | jq -r '.tag_name')
+echo "libpsl version: ${LIBPSL_VERSION}"
+
+CARES_VERSION=$(${CURL} "https://api.github.com/repos/c-ares/c-ares/releases/latest" | jq -r '.tag_name' | sed 's/^v//')
+echo "c-ares version: ${CARES_VERSION}"
+
+CURL_TAG=$(${CURL} "https://api.github.com/repos/curl/curl/releases/latest" | jq -r '.tag_name')
+CURL_VERSION=$(echo "$CURL_TAG" | sed 's/curl-//' | tr '_' '.')
+echo "curl version: ${CURL_VERSION}"
+
+# ===========================================================================
+# Part 2: Download dependencies and extract
+# ===========================================================================
+
+echo "=== Downloading and extracting dependencies ==="
 
 mkdir -p /build
 cd /build
-curl -fsSLO "https://git.musl-libc.org/cgit/musl/snapshot/musl-${MUSL_VERSION}.tar.gz"
+
+# musl
+${CURL_DL} "https://git.musl-libc.org/cgit/musl/snapshot/musl-${MUSL_VERSION}.tar.gz"
 tar xf "musl-${MUSL_VERSION}.tar.gz"
-cd "musl-${MUSL_VERSION}"
+
+# rpmalloc
+${CURL_DL} "https://github.com/mjansson/rpmalloc/archive/refs/tags/${RPMALLOC_VERSION}.tar.gz"
+tar xf "${RPMALLOC_VERSION}.tar.gz"
+
+# zlib-ng
+${CURL_DL} "https://github.com/zlib-ng/zlib-ng/archive/refs/tags/${ZLIB_NG_VERSION}.tar.gz"
+tar xf "${ZLIB_NG_VERSION}.tar.gz"
+
+# libressl
+${CURL_DL} "https://ftp.openbsd.org/pub/OpenBSD/LibreSSL/libressl-${LIBRESSL_VERSION}.tar.gz"
+tar xf "libressl-${LIBRESSL_VERSION}.tar.gz"
+
+# nghttp2
+${CURL_DL} "https://github.com/nghttp2/nghttp2/archive/refs/tags/v${NGHTTP2_VERSION}.tar.gz"
+tar xf "v${NGHTTP2_VERSION}.tar.gz"
+
+# ncurses
+${CURL_DL} "https://invisible-island.net/archives/ncurses/ncurses.tar.gz"
+tar xf ncurses.tar.gz
+NCURSES_DIR=$(tar tzf ncurses.tar.gz | head -1 | cut -d/ -f1)
+
+# libpsl
+${CURL_DL} "https://github.com/rockdaboot/libpsl/releases/download/${LIBPSL_VERSION}/libpsl-${LIBPSL_VERSION}.tar.gz"
+tar xf "libpsl-${LIBPSL_VERSION}.tar.gz"
+
+# c-ares
+${CURL_DL} "https://github.com/c-ares/c-ares/releases/download/v${CARES_VERSION}/c-ares-${CARES_VERSION}.tar.gz"
+tar xf "c-ares-${CARES_VERSION}.tar.gz"
+
+# curl
+${CURL_DL} "https://github.com/curl/curl/archive/refs/tags/curl-${CURL_VERSION//./_}.tar.gz"
+tar xf "curl-${CURL_VERSION//./_}.tar.gz"
+
+# libtorrent
+if [ -n "${VERSION_NUM}" ]; then
+    ${CURL_DL} "https://github.com/rakshasa/rtorrent/releases/download/v${VERSION_NUM}/libtorrent-${VERSION_NUM}.tar.gz"
+    tar xf "libtorrent-${VERSION_NUM}.tar.gz"
+else
+    git clone --filter=blob:none --single-branch https://github.com/rakshasa/libtorrent.git
+    cd libtorrent
+    git checkout "$LIBTORRENT_SHA"
+    cd /build
+fi
+
+# rtorrent
+if [ -n "${VERSION_NUM}" ]; then
+    ${CURL_DL} "https://github.com/rakshasa/rtorrent/releases/download/v${VERSION_NUM}/rtorrent-${VERSION_NUM}.tar.gz"
+    tar xf "rtorrent-${VERSION_NUM}.tar.gz"
+else
+    git clone --filter=blob:none --single-branch https://github.com/rakshasa/rtorrent.git
+    cd rtorrent
+    git checkout "$RTORRENT_SHA"
+    cd /build
+fi
+
+# ===========================================================================
+# Part 3: Compile all dependencies and rtorrent
+# ===========================================================================
+
+echo "=== Compiling all components ==="
+
+# ---------------------------------------------------------------------------
+# 3.1 Build musl libc (C standard library)
+# ---------------------------------------------------------------------------
+echo "Building musl libc ${MUSL_VERSION}"
+
+cd /build/musl-${MUSL_VERSION}
 
 ./configure \
     --prefix=/usr/local \
@@ -105,16 +211,11 @@ export LIBRARY_PATH="/usr/local/lib${LIBRARY_PATH:+:$LIBRARY_PATH}"
 export CPATH="/usr/local/include${CPATH:+:$CPATH}"
 
 # ---------------------------------------------------------------------------
-# 3. Build rpmalloc (modern heap memory allocator)
+# 3.2 Build rpmalloc (modern heap memory allocator)
 # ---------------------------------------------------------------------------
-RPMALLOC_VERSION=$(curl -fsS "https://api.github.com/repos/mjansson/rpmalloc/releases/latest" | jq -r '.tag_name')
-echo "Latest rpmalloc version: ${RPMALLOC_VERSION}"
+echo "Building rpmalloc ${RPMALLOC_VERSION}"
 
-mkdir -p /build
-cd /build
-curl -fsSLO "https://github.com/mjansson/rpmalloc/archive/refs/tags/${RPMALLOC_VERSION}.tar.gz"
-tar xf "${RPMALLOC_VERSION}.tar.gz"
-cd "rpmalloc-${RPMALLOC_VERSION}"
+cd /build/rpmalloc-${RPMALLOC_VERSION}
 
 # Map ARCH to rpmalloc architecture name
 case "${ARCH}" in
@@ -132,16 +233,11 @@ mkdir -p /usr/local/lib
 cp -f "lib/linux/release/${RPMALLOC_ARCH}/librpmalloc.a" /usr/local/lib/
 
 # ---------------------------------------------------------------------------
-# 4. Build zlib-ng (zlib replacement with optimizations)
+# 3.3 Build zlib-ng (zlib replacement with optimizations)
 # ---------------------------------------------------------------------------
-ZLIB_NG_VERSION=$(curl -fsS "https://api.github.com/repos/zlib-ng/zlib-ng/releases/latest" | jq -r '.tag_name')
-echo "Latest zlib-ng version: ${ZLIB_NG_VERSION}"
+echo "Building zlib-ng ${ZLIB_NG_VERSION}"
 
-mkdir -p /build
-cd /build
-curl -fsSLO "https://github.com/zlib-ng/zlib-ng/archive/refs/tags/${ZLIB_NG_VERSION}.tar.gz"
-tar xf "${ZLIB_NG_VERSION}.tar.gz"
-cd "zlib-ng-${ZLIB_NG_VERSION}"
+cd /build/zlib-ng-${ZLIB_NG_VERSION}
 
 cmake -B build \
     -DCMAKE_INSTALL_PREFIX=/usr/local \
@@ -161,15 +257,11 @@ cmake --install build
 rm -f /usr/lib/pkgconfig/zlib.pc 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
-# 5. Build LibreSSL (replaces OpenSSL)
+# 3.4 Build LibreSSL (replaces OpenSSL)
 # ---------------------------------------------------------------------------
-LIBRESSL_VERSION=$(curl -fsS "https://api.github.com/repos/libressl/portable/releases/latest" | jq -r '.tag_name' | sed 's/^v//')
-echo "Latest LibreSSL version: ${LIBRESSL_VERSION}"
+echo "Building LibreSSL ${LIBRESSL_VERSION}"
 
-cd /build
-curl -fsSLO "https://ftp.openbsd.org/pub/OpenBSD/LibreSSL/libressl-${LIBRESSL_VERSION}.tar.gz"
-tar xf "libressl-${LIBRESSL_VERSION}.tar.gz"
-cd "libressl-${LIBRESSL_VERSION}"
+cd /build/libressl-${LIBRESSL_VERSION}
 
 cmake -B build \
     -DCMAKE_INSTALL_PREFIX=/usr/local \
@@ -184,15 +276,11 @@ cmake --build build -j"$(nproc)"
 cmake --install build
 
 # ---------------------------------------------------------------------------
-# 6. Build nghttp2 (HTTP/2 library)
+# 3.5 Build nghttp2 (HTTP/2 library)
 # ---------------------------------------------------------------------------
-NGHTTP2_VERSION=$(curl -fsS "https://api.github.com/repos/nghttp2/nghttp2/releases/latest" | jq -r '.tag_name' | sed 's/^v//')
-echo "Latest nghttp2 version: ${NGHTTP2_VERSION}"
+echo "Building nghttp2 ${NGHTTP2_VERSION}"
 
-cd /build
-curl -fsSLO "https://github.com/nghttp2/nghttp2/archive/refs/tags/v${NGHTTP2_VERSION}.tar.gz"
-tar xf "v${NGHTTP2_VERSION}.tar.gz"
-cd "nghttp2-${NGHTTP2_VERSION}"
+cd /build/nghttp2-${NGHTTP2_VERSION}
 
 autoreconf -fi
 ./configure \
@@ -208,14 +296,11 @@ make -j"$(nproc)"
 make install
 
 # ---------------------------------------------------------------------------
-# 7. Build ncurses (terminal handling library)
+# 3.6 Build ncurses (terminal handling library)
 # ---------------------------------------------------------------------------
+echo "Building ncurses"
 
-cd /build
-curl -fsSLO "https://invisible-island.net/archives/ncurses/ncurses.tar.gz"
-tar xf ncurses.tar.gz
-NCURSES_DIR=$(tar tzf ncurses.tar.gz | head -1 | cut -d/ -f1)
-cd "$NCURSES_DIR"
+cd /build/${NCURSES_DIR}
 
 # Need to run the configure script from a separate build directory
 mkdir -p build && cd build
@@ -245,15 +330,11 @@ make -j"$(nproc)"
 make install.libs install.includes
 
 # ---------------------------------------------------------------------------
-# 8. Build libpsl (Public Suffix List library)
+# 3.7 Build libpsl (Public Suffix List library)
 # ---------------------------------------------------------------------------
-LIBPSL_VERSION=$(curl -fsS "https://api.github.com/repos/rockdaboot/libpsl/releases/latest" | jq -r '.tag_name')
-echo "Latest libpsl version: ${LIBPSL_VERSION}"
+echo "Building libpsl ${LIBPSL_VERSION}"
 
-cd /build
-curl -fsSLO "https://github.com/rockdaboot/libpsl/releases/download/${LIBPSL_VERSION}/libpsl-${LIBPSL_VERSION}.tar.gz"
-tar xf "libpsl-${LIBPSL_VERSION}.tar.gz"
-cd "libpsl-${LIBPSL_VERSION}"
+cd /build/libpsl-${LIBPSL_VERSION}
 
 ./configure \
     --prefix=/usr/local \
@@ -268,15 +349,11 @@ make -j"$(nproc)"
 make install
 
 # ---------------------------------------------------------------------------
-# 9. Build c-ares (asynchronous DNS resolver)
+# 3.8 Build c-ares (asynchronous DNS resolver)
 # ---------------------------------------------------------------------------
-CARES_VERSION=$(curl -fsS "https://api.github.com/repos/c-ares/c-ares/releases/latest" | jq -r '.tag_name' | sed 's/^v//')
-echo "Latest c-ares version: ${CARES_VERSION}"
+echo "Building c-ares ${CARES_VERSION}"
 
-cd /build
-curl -fsSLO "https://github.com/c-ares/c-ares/releases/download/v${CARES_VERSION}/c-ares-${CARES_VERSION}.tar.gz"
-tar xf "c-ares-${CARES_VERSION}.tar.gz"
-cd "c-ares-${CARES_VERSION}"
+cd /build/c-ares-${CARES_VERSION}
 
 cmake -B build \
     -DCMAKE_INSTALL_PREFIX=/usr/local \
@@ -290,16 +367,11 @@ cmake --build build -j"$(nproc)"
 cmake --install build
 
 # ---------------------------------------------------------------------------
-# 10. Build curl (HTTP/HTTPS tool and library)
+# 3.9 Build curl (HTTP/HTTPS tool and library)
 # ---------------------------------------------------------------------------
-CURL_TAG=$(curl -fsS "https://api.github.com/repos/curl/curl/releases/latest" | jq -r '.tag_name')
-CURL_VERSION=$(echo "$CURL_TAG" | sed 's/curl-//' | tr '_' '.')
-echo "Latest curl version: ${CURL_VERSION}"
+echo "Building curl ${CURL_VERSION}"
 
-cd /build
-curl -fsSLO "https://github.com/curl/curl/archive/refs/tags/curl-${CURL_VERSION//./_}.tar.gz"
-tar xf "curl-${CURL_VERSION//./_}.tar.gz"
-cd "curl-curl-${CURL_VERSION//./_}"
+cd /build/curl-curl-${CURL_VERSION//./_}
 
 autoreconf -fi
 ./configure \
@@ -343,21 +415,14 @@ make -j"$(nproc)"
 make install
 
 # ---------------------------------------------------------------------------
-# 11. Build libtorrent (same version tag as rtorrent)
+# 3.10 Build libtorrent (same version tag as rtorrent)
 # ---------------------------------------------------------------------------
-cd /build
+echo "Building libtorrent"
 
-# If VERSION_NUM is set, we download the source tarball for that version. This is the default behavior for release builds.
-# If VERSION_NUM is not set, we clone the git repository and checkout the specified commit. This is used for nightly builds that do not have a version tag.
 if [ -n "${VERSION_NUM}" ]; then
-    curl -fsSLO \
-        "https://github.com/rakshasa/rtorrent/releases/download/v${VERSION_NUM}/libtorrent-${VERSION_NUM}.tar.gz"
-    tar xf "libtorrent-${VERSION_NUM}.tar.gz"
-    cd "libtorrent-${VERSION_NUM}"
+    cd /build/libtorrent-${VERSION_NUM}
 else
-    git clone --filter=blob:none --single-branch https://github.com/rakshasa/libtorrent.git
-    cd libtorrent
-    git checkout "$LIBTORRENT_SHA"
+    cd /build/libtorrent
 fi
 
 autoreconf -fi
@@ -374,19 +439,14 @@ make -j"$(nproc)"
 make install
 
 # ---------------------------------------------------------------------------
-# 12. Build rtorrent (same version tag as libtorrent)
+# 3.11 Build rtorrent (same version tag as libtorrent)
 # ---------------------------------------------------------------------------
-cd /build
+echo "Building rtorrent"
 
 if [ -n "${VERSION_NUM}" ]; then
-    curl -fsSLO \
-        "https://github.com/rakshasa/rtorrent/releases/download/v${VERSION_NUM}/rtorrent-${VERSION_NUM}.tar.gz"
-    tar xf "rtorrent-${VERSION_NUM}.tar.gz"
-    cd "rtorrent-${VERSION_NUM}"
+    cd /build/rtorrent-${VERSION_NUM}
 else
-    git clone --filter=blob:none --single-branch https://github.com/rakshasa/rtorrent.git
-    cd rtorrent
-    git checkout "$RTORRENT_SHA"
+    cd /build/rtorrent
 fi
 
 autoreconf -fi
@@ -402,7 +462,7 @@ autoreconf -fi
 make -j"$(nproc)" LDFLAGS="-all-static -Wl,--as-needed -flto -lrpmalloc"
 
 # ---------------------------------------------------------------------------
-# 13. Copy and verify the output binary
+# 3.12 Copy and verify the output binary
 # ---------------------------------------------------------------------------
 OUTPUT="/output/rtorrent-linux-${ARCH}${SUFFIX}"
 
