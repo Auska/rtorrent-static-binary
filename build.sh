@@ -399,7 +399,7 @@ autoreconf -fi
     CFLAGS="${BASE_CFLAGS} -flto" \
     CXXFLAGS="${BASE_CFLAGS} -flto"
 
-make -j"$(nproc)" LDFLAGS="-all-static -Wl,--as-needed -flto -Wl,--undefined=malloc -Wl,--undefined=free -Wl,--undefined=calloc -Wl,--undefined=realloc"
+make -j"$(nproc)" LDFLAGS="-all-static -Wl,--as-needed -flto -lrpmalloc"
 
 # ---------------------------------------------------------------------------
 # 13. Copy and verify the output binary
