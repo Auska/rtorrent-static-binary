@@ -318,7 +318,7 @@ autoreconf -fi
     --without-ngtcp2 \
     --without-openssl-quic \
     --with-zlib \
-    --enable-c-ares \
+    --enable-ares \
     --enable-ipv6 \
     --disable-ldap \
     --disable-ldaps \
